@@ -14,4 +14,13 @@
   <td> 
     <a href="<%= Rekon.riakUrl(bucket + '/' + key) %>" class="delete icon">Delete</a>
   </td> 
+  <td>
+    <form action='#/mapred/<%= bucket %>/<%= key %>' method='get'>
+      <select id='phase' name='phase'>
+      </select>
+      <!--<input id='phase' name='phase' type='text' />-->
+      <button type='submit'>Run</button>
+    </form>
+  </td>
+
 </tr> 

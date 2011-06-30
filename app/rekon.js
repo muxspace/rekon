@@ -13,6 +13,44 @@ rekonApp = Sammy('#container', function(){
   searchable = function(selector) {
     $('#row_search').quicksearch(selector, {selector: 'th'});
   };
+
+  // Render phases that are loaded in the bucket
+  renderPhases = function(context) {
+    var bucket = new RiakBucket('rekon', Rekon.client);
+    bucket.keys(function(keys) {
+      if (keys.length > 0) {
+        keys = keys.filter(function(key) { return key.indexOf("map-") === 0; });
+        phases = keys.map(function(key) { return {phase:key}; });
+        context.renderEach('map-row.html.template', phases)
+          .replace('#phase');
+      } else {
+        context.render('bucket-empty.html.template').replace('#phase');
+      }
+    });
+  }
+
+  /*
+  runPhase = function(phase_path) {
+    var parts = phase_path.split("/");
+    var name = parts[0];
+    var key = parts[1];
+    var bucket = new RiakBucket(name, Rekon.client);
+    bucket.get(key, function(status, object) {
+      var mapper = new RiakMapper(Rekon.client, name, key);
+      //mapper.map({"language":"erlang","module":"myjson","function":"encode"});
+      mapper.map(phase);
+      mapper.run(null, function(status, list, xmlrequest) {
+        object = list[0];
+      //bucket.get(key, function(status, object) {
+        context.render('key-content-type.html.template', {object: object}, function(){
+          context.render('key-meta.html.template', {object: object}).appendTo('#key tbody');
+        }).appendTo('#key tbody');
+        value = object;
+        context.render('value-pre.html.template', {value: value}).appendTo('#value');
+      });
+    }
+  }
+  */
   
   this.use('Template');
   this.use('NestedParams');
@@ -42,20 +80,22 @@ rekonApp = Sammy('#container', function(){
     
     header('Bucket', Rekon.riakUrl(name));
     breadcrumb($('<a>').attr('href', '#/bucket-props/' + name).text('Props'));
-    breadcrumb($('<a>').attr('href', Rekon.riakUrl(name)).attr('target', '_blank').text('Riak').addClass('action'));
+    breadcrumb($('<a>').attr('href', Rekon.riakUrl(name))
+      .attr('target', '_blank').text('Riak').addClass('action'));
 
     context.render('bucket.html.template', {bucket: name}).appendTo('#main');
 
     bucket.keys(function(keys) {
       if (keys.length > 0) {
         keyRows = keys.map(function(key) { return {bucket:name, key:key}; });
-        context.renderEach('key-row.html.template', keyRows).replace('#keys tbody').then(
-          function(){ searchable('#bucket table tbody tr'); }
-        );
+        context.renderEach('key-row.html.template', keyRows)
+          .replace('#keys tbody')
+          .then(function(){ searchable('#bucket table tbody tr'); });
       } else {
         context.render('bucket-empty.html.template').replace('#keys tbody');
       }
     });
+    renderPhases(context);
   });
 
   this.get('#/bucket-props/:bucket', function(context) {
@@ -279,6 +319,53 @@ rekonApp = Sammy('#container', function(){
         } else{
           $('#files .pending td').html('<p>You have not added any files to luwak.</p>');
         }
+      });
+    });
+  });
+
+  /** Test a map reduce **/
+  // curl -X PUT -H"Content-Type: $content_type" $riak_url/$f --data-binary @$base_dir/$f
+  // curl -X PUT -H"Content-Type: application/javascript" http://127.0.0.1:8991/riak/rekon/map-erl_to_json.js --data-binary @./app/map-erl_to_json.js
+  this.get('#/mapred/:bucket/:key', function(context) {
+    var name   = this.params['bucket'];
+    var key    = this.params['key'];
+
+    header('Key', Rekon.riakUrl(name + '/' + key));
+    breadcrumb($('<a>').attr('href', '#/buckets/' + name).text('Keys'));
+    breadcrumb($('<a>').attr('href', '#/buckets/' + name + '/' + key + '/edit').text('Edit').addClass('action'));
+    breadcrumb($('<a>').attr('href', Rekon.riakUrl(name + '/' + key)).attr('target', '_blank').
+      text('Riak').addClass('action'));
+
+    context.render('key.html.template').appendTo('#main');
+
+    var phase  = jQuery.get(this.params['phase'], function(data) {
+      phase_data = jQuery.parseJSON(data);
+      //var phase  = jQuery.parseJSON(this.params['phase']);
+      var mapper = new RiakMapper(Rekon.client, name, key);
+      //mapper.map({"language":"erlang","module":"myjson","function":"encode"});
+      mapper.map(phase_data);
+      mapper.run(null, function(status, list, xmlrequest) {
+        object = list[0];
+        //bucket.get(key, function(status, object) {
+        context.render('key-content-type.html.template', {object: object}, function(){
+          context.render('key-meta.html.template', {object: object}).appendTo('#key tbody');
+        }).appendTo('#key tbody');
+
+        switch(object.contentType) {
+        case 'image/png':
+        case 'image/jpeg':
+        case 'image/jpg':
+        case 'image/gif':
+          context.render('value-image.html.template', {bucket: name, key: key}).appendTo('#value');
+          return;
+        case 'application/json':
+          value = JSON.stringify(object, null, 4);
+          break;
+        default:
+          value = object;
+          break;
+        }
+        context.render('value-pre.html.template', {value: value}).appendTo('#value');
       });
     });
   });

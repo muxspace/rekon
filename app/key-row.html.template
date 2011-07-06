@@ -15,7 +15,14 @@
     <a href="<%= Rekon.riakUrl(bucket + '/' + key) %>" class="delete icon">Delete</a>
   </td> 
   <td> 
-    <a href="<%= Rekon.riakUrl(bucket + '/' + key) %>/move" class="move icon">Move</a>
+    <a href="" class="move icon">Move</a>
+    <div id="mr_dialog" style="display:none">
+      <form action="#/buckets/<%= bucket %>/<%= key %>/move" method="post">
+        <label for="new_name">New Name</label>
+        <input id="new_name" name="target" type="text"/>
+        <button type="submit">Rename</button>
+      </form>
+    </div>
   </td> 
   <td>
     <form action='#/mapred/<%= bucket %>/<%= key %>' method='get'>

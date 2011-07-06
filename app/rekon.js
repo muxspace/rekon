@@ -513,8 +513,7 @@ $('#keys a.delete').live('click', function(e){
 $('#keys a.move').live('click', function(e){
   var link = this;
   e.preventDefault();
-  if(!confirm("Are you sure you want to move:\n" + $(link).attr('href'))) { return; }
-
+  $("#mr_dialog").modal();
 });
 
 $('#keys a.delete').live('click', function(e){

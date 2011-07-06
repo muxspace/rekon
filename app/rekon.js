@@ -15,42 +15,20 @@ rekonApp = Sammy('#container', function(){
   };
 
   // Render phases that are loaded in the bucket
-  renderPhases = function(context) {
+  renderPhase = function(context) {
     var bucket = new RiakBucket('rekon', Rekon.client);
     bucket.keys(function(keys) {
       if (keys.length > 0) {
-        keys = keys.filter(function(key) { return key.indexOf("map-") === 0; });
+        keys = keys.filter(find_maps);
         phases = keys.map(function(key) { return {phase:key}; });
         context.renderEach('map-row.html.template', phases)
           .replace('#phase');
       } else {
-        context.render('bucket-empty.html.template').replace('#phase');
+        //context.render('bucket-empty.html.template').replace('#phase');
       }
     });
   }
 
-  /*
-  runPhase = function(phase_path) {
-    var parts = phase_path.split("/");
-    var name = parts[0];
-    var key = parts[1];
-    var bucket = new RiakBucket(name, Rekon.client);
-    bucket.get(key, function(status, object) {
-      var mapper = new RiakMapper(Rekon.client, name, key);
-      //mapper.map({"language":"erlang","module":"myjson","function":"encode"});
-      mapper.map(phase);
-      mapper.run(null, function(status, list, xmlrequest) {
-        object = list[0];
-      //bucket.get(key, function(status, object) {
-        context.render('key-content-type.html.template', {object: object}, function(){
-          context.render('key-meta.html.template', {object: object}).appendTo('#key tbody');
-        }).appendTo('#key tbody');
-        value = object;
-        context.render('value-pre.html.template', {value: value}).appendTo('#value');
-      });
-    }
-  }
-  */
   
   this.use('Template');
   this.use('NestedParams');
@@ -91,11 +69,11 @@ rekonApp = Sammy('#container', function(){
         context.renderEach('key-row.html.template', keyRows)
           .replace('#keys tbody')
           .then(function(){ searchable('#bucket table tbody tr'); });
+        renderPhase(context);
       } else {
         context.render('bucket-empty.html.template').replace('#keys tbody');
       }
     });
-    renderPhases(context);
   });
 
   this.get('#/bucket-props/:bucket', function(context) {
@@ -168,6 +146,83 @@ rekonApp = Sammy('#container', function(){
       context.render('value-pre.html.template', {value: value}).appendTo('#value');
     });
   });
+
+  // Move an object from one key to another
+  /*
+  this.get('#/buckets/:bucket/:key/move', function(context) {
+    var name   = this.params['bucket'];
+    var key    = this.params['key'];
+    var bucket = new RiakBucket(name, Rekon.client);
+    var app    = this;
+
+    header('Edit Key', Rekon.riakUrl(name + '/' + key));
+    breadcrumb($('<a>').attr('href', '#/buckets/' + name).text('Keys'));
+    breadcrumb($('<a>').attr('href', '#/buckets/' + name + '/' + key).text('View').addClass('action'));
+    breadcrumb($('<a>').attr('href', Rekon.riakUrl(name + '/' + key)).attr('target', '_blank').
+      text('Riak').addClass('action'));
+
+    context.render('move-key.html.template', {bucket: name, key: key}).appendTo('#main');
+
+    bucket.get(key, function(status, object) {
+      switch(object.contentType) {
+      case 'image/png':
+      case 'image/jpeg':
+      case 'image/jpg':
+      case 'image/gif':
+        alert('Image editing is not supported currently.');
+        app.redirect('#/buckets/' + name + '/' + key);
+        return;
+      case 'application/json':
+        value = JSON.stringify(object.body, null, 4);
+        break;
+      default:
+        value = object.body;
+        break;
+      }
+      context.render('edit-key-content-type.html.template', {object: object}, function(html){
+        context.render('key-meta.html.template', {object: object}).appendTo('#edit-key tbody');
+      }).appendTo('#edit-key tbody').then(function(html){
+        $select = $('select[name=content-type]');
+        $select.val(object.contentType);
+      });
+      context.render('edit-value.html.template', {value: value}).appendTo('#edit-value');
+    });
+  });
+  */
+
+  // Don't use edit since it will try to save JSON. We want to preserve data
+  this.post('#/buckets/:bucket/:key/move', function(context){ 
+    var app    = this;
+    var name   = this.params['bucket'];
+    var key    = this.params['key'];
+    var target = this.params['target'];
+    var bucket = new RiakBucket(name, Rekon.client);
+
+    bucket.get(key, function(status, object) {
+      object.key = target;
+
+      object.store(function(status, rObject) {
+        switch(status) {
+        case 'siblings':
+          alert("Oh noes! Siblings have been born and Rekon doesn't handle that yet.");
+          break;
+        case 'failure':
+          alert("There was an error saving to Riak.");
+          break;
+        case 'ok':
+        default:
+          // Only delete the old object if the new one was added successfully!
+          $.ajax({
+            type: 'DELETE',
+            url: Rekon.riakUrl(name + '/' + key)
+          });
+          app.redirect('#/buckets/' + name + '/' + target);
+          break;
+        }
+      });
+    });
+  });
+
 
   this.get('#/buckets/:bucket/:key/edit', function(context) {
     var name   = this.params['bucket'];
@@ -455,6 +510,28 @@ $('#keys a.delete').live('click', function(e){
   });
 });
 
+$('#keys a.move').live('click', function(e){
+  var link = this;
+  e.preventDefault();
+  if(!confirm("Are you sure you want to move:\n" + $(link).attr('href'))) { return; }
+
+});
+
+$('#keys a.delete').live('click', function(e){
+  var link = this;
+  e.preventDefault();
+  if(!confirm("Are you sure you want to delete:\n" + $(link).attr('href'))) { return; }
+
+  $.ajax({
+    type: 'DELETE',
+    url: $(link).attr('href')
+  }).success(function(){
+    $(link).closest('tr').remove();
+  }).error(function(){
+    alert('There was an error deleting this object from Riak.');
+  });
+});
+
 var filterInteger = function(){
   var value = parseInt($(this).val(), 10);
   if (isNaN(value)) {
@@ -464,6 +541,17 @@ var filterInteger = function(){
 };
 
 $("input[data-filter=integer]").live('blur', filterInteger);
+
+
+// Just find map files (JS ending in .map)
+var find_maps = function(key) {
+  return /\.map$/.test(key);
+}
+
+// Find both map and reduce files (JS ending in .map or .red)
+var find_mrs = function(key) {
+  return /\.(map|red)$/.test(key);
+}
 
 /*
 * Bootstrap the application

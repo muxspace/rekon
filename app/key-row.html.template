@@ -9,16 +9,18 @@
     <a href="<%= Rekon.riakUrl(bucket + '/' + key) %>" class="riak icon" target="_blank">Riak</a> 
   </td> 
   <td> 
-    <a href="#/buckets/<%= bucket %>/<%= key %>/edit" class="edit icon">Edit</a> 
+    <a href="#/buckets/<%= bucket %>/<%= key %>/edit" class="edit icon">Edit</a>
   </td> 
   <td> 
     <a href="<%= Rekon.riakUrl(bucket + '/' + key) %>" class="delete icon">Delete</a>
+  </td> 
+  <td> 
+    <a href="<%= Rekon.riakUrl(bucket + '/' + key) %>/move" class="move icon">Move</a>
   </td> 
   <td>
     <form action='#/mapred/<%= bucket %>/<%= key %>' method='get'>
       <select id='phase' name='phase'>
       </select>
-      <!--<input id='phase' name='phase' type='text' />-->
       <button type='submit'>Run</button>
     </form>
   </td>

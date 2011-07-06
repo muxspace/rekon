@@ -38,7 +38,10 @@ for f in $(ls $base_dir); do
       ;;
   esac
 
+  echo "Uploading $f"
+  set -x
   curl -X PUT -H"Content-Type: $content_type" $riak_url/$f --data-binary @$base_dir/$f
+  set +x
 done
 
 echo "Installed, now visit: $riak_url/go"

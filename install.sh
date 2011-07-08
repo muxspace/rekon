@@ -38,8 +38,21 @@ for f in $(ls $base_dir); do
       ;;
   esac
 
-  echo "Uploading $f"
+  #echo "Uploading $f"
   curl -X PUT -H"Content-Type: $content_type" $riak_url/$f --data-binary @$base_dir/$f
 done
+
+riak_url="http://$node/riak/rekon.jobs"
+base_dir="`dirname $0`/jobs"
+for f in $(ls $base_dir)
+do
+  content_type="application/javascript"
+  #echo "Uploading $f"
+  curl -X PUT -H"Content-Type: $content_type" $riak_url/$f --data-binary @$base_dir/$f
+done
+
+module_dir=/etc/riak/erlang
+sudo mkdir -p $module_dir
+sudo erlc -o $module_dir erlang/*.erl
 
 echo "Installed, now visit: $riak_url/go"

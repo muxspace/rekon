@@ -15,17 +15,16 @@ rekonApp = Sammy(function() {
   };
 
   // Render phases that are loaded in the bucket
-  renderPhase = function(context) {
-    var bucket = new RiakBucket('rekon', Rekon.client);
+  renderPhase = function() {
+    var bucket = new RiakBucket('rekon.jobs', Rekon.client);
     bucket.keys(function(keys) {
-      if (keys.length > 0) {
-        keys = keys.filter(find_maps);
-        phases = keys.map(function(key) { return {phase:key}; });
-        context.renderEach('map-row.html.template', phases)
-          .replace('#phase');
-      } else {
-        //context.render('bucket-empty.html.template').replace('#phase');
-      }
+      if (keys.length < 1) return;
+
+      keys = keys.filter(find_maps);
+      phases = keys
+        .map(function(x) { return '<option value="'+x+'">'+x+'</option>'; })
+        .join();
+      $('select#phase').each(function(idx,el) { $(el).append(phases); });
     });
   };
   
@@ -64,17 +63,13 @@ rekonApp = Sammy(function() {
     context.render('bucket.html.template', {bucket: name}).appendTo('#main');
 
     bucket.keys(function(keys) {
-      map_keys = keys.filter(find_maps);
-      map_fns = map_keys
-        .map(function(x) { return '<option value="'+x+'">'+x+'</option>'; })
-        .join();
       if (keys.length > 0) {
         keyRows = keys.map(
           function(key) { return {bucket:name, key:key}; });
         context.renderEach('key-row.html.template', keyRows)
           .replace('#keys tbody')
           .then(function(){ searchable('#bucket table tbody tr'); })
-          .then(function(){ $('select#phase').each(function(idx,el) { $(el).append(map_fns); }) });
+          .then(renderPhase);
       } else {
         context.render('bucket-empty.html.template').replace('#keys tbody');
       }
@@ -346,7 +341,7 @@ rekonApp = Sammy(function() {
   /** Test a map reduce **/
   // curl -X PUT -H"Content-Type: $content_type" $riak_url/$f --data-binary @$base_dir/$f
   // curl -X PUT -H"Content-Type: application/javascript" http://127.0.0.1:8991/riak/rekon/map-erl_to_json.js --data-binary @./app/map-erl_to_json.js
-  this.get('#/mapred/:bucket/:key', function(context) {
+  this.post('#/mapred/:bucket/:key', function(context) {
     var name   = this.params['bucket'];
     var key    = this.params['key'];
 
@@ -358,15 +353,18 @@ rekonApp = Sammy(function() {
 
     context.render('key.html.template').appendTo('#main');
 
-    var phase  = jQuery.get(this.params['phase'], function(data) {
+    phase_url = Rekon.riakUrl('rekon.jobs/'+this.params['phase']);
+    var phase  = jQuery.get(phase_url, function(data) {
       phase_data = jQuery.parseJSON(data);
-      //var phase  = jQuery.parseJSON(this.params['phase']);
       var mapper = new RiakMapper(Rekon.client, name, key);
-      //mapper.map({"language":"erlang","module":"myjson","function":"encode"});
       mapper.map(phase_data);
       mapper.run(null, function(status, list, xmlrequest) {
+        if (! status) {
+          // TODO: Add error message.
+          return;
+        }
+
         object = list[0];
-        //bucket.get(key, function(status, object) {
         context.render('key-content-type.html.template', {object: object}, function(){
           context.render('key-meta.html.template', {object: object}).appendTo('#key tbody');
         }).appendTo('#key tbody');

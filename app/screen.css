@@ -48,7 +48,7 @@ table th, table td {
 }
 
 #bucket tbody th {
-  min-width:500px;
+  min-width:400px;
 }
 
 #stats th {

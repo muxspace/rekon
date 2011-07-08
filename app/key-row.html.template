@@ -25,7 +25,7 @@
     </div>
   </td> 
   <td>
-    <form action='#/mapred/<%= bucket %>/<%= key %>' method='get'>
+    <form action='#/mapred/<%= bucket %>/<%= key %>' method='post'>
       <select id='phase' name='phase'>
       </select>
       <button type='submit'>Run</button>

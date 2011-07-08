@@ -1,4 +1,4 @@
-rekonApp = Sammy('#container', function(){
+rekonApp = Sammy(function() {
 
   $container = $(this.$element);
 
@@ -27,8 +27,8 @@ rekonApp = Sammy('#container', function(){
         //context.render('bucket-empty.html.template').replace('#phase');
       }
     });
-  }
-
+  };
+  
   
   this.use('Template');
   this.use('NestedParams');
@@ -64,12 +64,17 @@ rekonApp = Sammy('#container', function(){
     context.render('bucket.html.template', {bucket: name}).appendTo('#main');
 
     bucket.keys(function(keys) {
+      map_keys = keys.filter(find_maps);
+      map_fns = map_keys
+        .map(function(x) { return '<option value="'+x+'">'+x+'</option>'; })
+        .join();
       if (keys.length > 0) {
-        keyRows = keys.map(function(key) { return {bucket:name, key:key}; });
+        keyRows = keys.map(
+          function(key) { return {bucket:name, key:key}; });
         context.renderEach('key-row.html.template', keyRows)
           .replace('#keys tbody')
-          .then(function(){ searchable('#bucket table tbody tr'); });
-        renderPhase(context);
+          .then(function(){ searchable('#bucket table tbody tr'); })
+          .then(function(){ $('.phase').each(function(idx) { $('.phase')[idx].append(map_fns); }) });
       } else {
         context.render('bucket-empty.html.template').replace('#keys tbody');
       }
@@ -147,55 +152,13 @@ rekonApp = Sammy('#container', function(){
     });
   });
 
-  // Move an object from one key to another
-  /*
-  this.get('#/buckets/:bucket/:key/move', function(context) {
-    var name   = this.params['bucket'];
-    var key    = this.params['key'];
-    var bucket = new RiakBucket(name, Rekon.client);
-    var app    = this;
-
-    header('Edit Key', Rekon.riakUrl(name + '/' + key));
-    breadcrumb($('<a>').attr('href', '#/buckets/' + name).text('Keys'));
-    breadcrumb($('<a>').attr('href', '#/buckets/' + name + '/' + key).text('View').addClass('action'));
-    breadcrumb($('<a>').attr('href', Rekon.riakUrl(name + '/' + key)).attr('target', '_blank').
-      text('Riak').addClass('action'));
-
-    context.render('move-key.html.template', {bucket: name, key: key}).appendTo('#main');
-
-    bucket.get(key, function(status, object) {
-      switch(object.contentType) {
-      case 'image/png':
-      case 'image/jpeg':
-      case 'image/jpg':
-      case 'image/gif':
-        alert('Image editing is not supported currently.');
-        app.redirect('#/buckets/' + name + '/' + key);
-        return;
-      case 'application/json':
-        value = JSON.stringify(object.body, null, 4);
-        break;
-      default:
-        value = object.body;
-        break;
-      }
-      context.render('edit-key-content-type.html.template', {object: object}, function(html){
-        context.render('key-meta.html.template', {object: object}).appendTo('#edit-key tbody');
-      }).appendTo('#edit-key tbody').then(function(html){
-        $select = $('select[name=content-type]');
-        $select.val(object.contentType);
-      });
-      context.render('edit-value.html.template', {value: value}).appendTo('#edit-value');
-    });
-  });
-  */
 
   // Don't use edit since it will try to save JSON. We want to preserve data
-  this.post('#/buckets/:bucket/:key/move', function(context){ 
+  this.post('#/buckets/:bucket/:key0/move', function(context){ 
     var app    = this;
     var name   = this.params['bucket'];
-    var key    = this.params['key'];
-    var target = this.params['target'];
+    var key    = this.params['key0'];
+    var target = this.params['key1'];
     var bucket = new RiakBucket(name, Rekon.client);
 
     bucket.get(key, function(status, object) {
@@ -216,6 +179,8 @@ rekonApp = Sammy('#container', function(){
             type: 'DELETE',
             url: Rekon.riakUrl(name + '/' + key)
           });
+          $("#simplemodal-overlay").remove();
+          $("#simplemodal-container").remove();
           app.redirect('#/buckets/' + name + '/' + target);
           break;
         }
@@ -427,6 +392,8 @@ rekonApp = Sammy('#container', function(){
 
 });
 
+
+
 Rekon = {
   client : new RiakClient(),
 
@@ -495,25 +462,10 @@ Rekon = {
 
 };
 
-$('#keys a.delete').live('click', function(e){
-  var link = this;
-  e.preventDefault();
-  if(!confirm("Are you sure you want to delete:\n" + $(link).attr('href'))) { return; }
-
-  $.ajax({
-    type: 'DELETE',
-    url: $(link).attr('href')
-  }).success(function(){
-    $(link).closest('tr').remove();
-  }).error(function(){
-    alert('There was an error deleting this object from Riak.');
-  });
-});
-
 $('#keys a.move').live('click', function(e){
   var link = this;
   e.preventDefault();
-  $("#mr_dialog").modal();
+  $(e.target).next("div").modal();
 });
 
 $('#keys a.delete').live('click', function(e){

@@ -15,8 +15,33 @@ Download and install using `curl -s rekon.basho.com | sh` or
 Install locally using `./install.sh` or `./install.sh node-addr:port` 
 to specify the node.
 
+
 ## Usage
 
 Once installed navigate to http://node-addr:port/riak/rekon/go.  This will be
 [http://127.0.0.1:8098/riak/rekon/go](http://127.0.0.1:8098/riak/rekon/go) if
 you installed riak on a local riak node running on the standard port.
+
+
+### Map/Reduce Jobs
+
+M/R jobs can be run inside rekon. All jobs in the bucket rekon.jobs will be 
+loaded and displayed by each key. Jobs are named with either a .map 
+extension or a .red extension depending on their function. 
+
+These jobs are automatically installed when running the manual installer.
+Add the jobs inside the rekon source directory jobs. Erlang source should be
+added to erlang. They will be compiled and output to /etc/riak/erlang. To
+use these beams, you need to either add the following configuration to your
+riak app.config under the riak_kv section:
+  {add_paths, ["/etc/riak/erlang"]},
+
+or from the attached console, manually add to a running riak's path:
+  $ $RIAK/bin/riak attach
+  > code:add_path("/etc/riak/erlang").
+
+In the future, M/R jobs will be available for the full bucket.
+
+## Credits
+Adam Hunter - Original code base
+Brian Lee Yung Rowe - Added renaming of keys, m/r jobs from rekon

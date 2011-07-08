@@ -206,6 +206,7 @@ a:hover {
 .riak    { background-image:url('riak.png'); }
 .view    { background-image:url('view.png'); }
 .edit    { background-image:url('edit.png'); }
+.move    { background-image:url('view.png'); }
 .delete  { background-image:url('delete.png'); }
 .buckets { background-image:url('buckets.png'); }
 .stats   { background-image:url('stats.png'); }
@@ -239,6 +240,14 @@ label[for=edit_key] {
   font-weight:bold;
   font-size:1.4em;
   padding:4px;
+}
+
+label[for=new_name] {
+  display:block;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size:0.8em;
+  padding:4px;
+  color:#fff;
 }
 
 label[for=row_search] {

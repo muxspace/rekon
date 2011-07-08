@@ -1,1 +1,1 @@
-<option value="<%= phase %>"><%= phase %></option>
+<%= map_fns %>

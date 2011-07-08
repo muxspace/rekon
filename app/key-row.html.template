@@ -16,17 +16,17 @@
   </td> 
   <td> 
     <a href="" class="move icon">Move</a>
-    <div id="mr_dialog" style="display:none">
+    <div id="move_dialog" style="display:none">
       <form action="#/buckets/<%= bucket %>/<%= key %>/move" method="post">
-        <label for="new_name">New Name</label>
-        <input id="new_name" name="target" type="text"/>
+        <label for="new_name">Move <%= key %> to</label>
+        <input id="new_name" name="key1" type="text"/>
         <button type="submit">Rename</button>
       </form>
     </div>
   </td> 
   <td>
     <form action='#/mapred/<%= bucket %>/<%= key %>' method='get'>
-      <select id='phase' name='phase'>
+      <select id='phase' name='phase' class='phase'>
       </select>
       <button type='submit'>Run</button>
     </form>

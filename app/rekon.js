@@ -74,7 +74,7 @@ rekonApp = Sammy(function() {
         context.renderEach('key-row.html.template', keyRows)
           .replace('#keys tbody')
           .then(function(){ searchable('#bucket table tbody tr'); })
-          .then(function(){ $('.phase').each(function(idx) { $('.phase')[idx].append(map_fns); }) });
+          .then(function(){ $('select#phase').each(function(idx,el) { $(el).append(map_fns); }) });
       } else {
         context.render('bucket-empty.html.template').replace('#keys tbody');
       }

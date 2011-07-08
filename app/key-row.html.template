@@ -26,7 +26,7 @@
   </td> 
   <td>
     <form action='#/mapred/<%= bucket %>/<%= key %>' method='get'>
-      <select id='phase' name='phase' class='phase'>
+      <select id='phase' name='phase'>
       </select>
       <button type='submit'>Run</button>
     </form>

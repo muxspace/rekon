@@ -15,16 +15,19 @@ rekonApp = Sammy(function() {
   };
 
   // Render phases that are loaded in the bucket
-  renderPhase = function() {
+  renderPhase = function(selector, filter, callback) {
+    if (!filter) { filter = find_maps; }
     var bucket = new RiakBucket('rekon.jobs', Rekon.client);
     bucket.keys(function(keys) {
       if (keys.length < 1) return;
 
-      keys = keys.filter(find_maps);
+      keys = keys.filter(filter);
       phases = keys
         .map(function(x) { return '<option value="'+x+'">'+x+'</option>'; })
         .join();
-      $('select#phase').each(function(idx,el) { $(el).append(phases); });
+      $(selector).each(function(idx,el) { $(el).append(phases); });
+
+      if (callback) { callback(); }
     });
   };
   
@@ -60,6 +63,12 @@ rekonApp = Sammy(function() {
     breadcrumb($('<a>').attr('href', Rekon.riakUrl(name))
       .attr('target', '_blank').text('Riak').addClass('action'));
 
+    context.render('bucket-mr.html.template', {bucket:name})
+      .appendTo('#main');
+    renderPhase('#mr_jobs select[multiple]', find_mrs, function() {
+      $("#mr_jobs select[multiple]")
+        .asmSelect({sortable: true, animate: true, addItemTarget: 'top'});
+    });
     context.render('bucket.html.template', {bucket: name}).appendTo('#main');
 
     bucket.keys(function(keys) {
@@ -69,7 +78,7 @@ rekonApp = Sammy(function() {
         context.renderEach('key-row.html.template', keyRows)
           .replace('#keys tbody')
           .then(function(){ searchable('#bucket table tbody tr'); })
-          .then(renderPhase);
+          .then(function(){ renderPhase('#keys select#phase'); });
       } else {
         context.render('bucket-empty.html.template').replace('#keys tbody');
       }
@@ -328,8 +337,9 @@ rekonApp = Sammy(function() {
         }
         else if (files.length > 0) {
           fileRows = files.map(function(file){ return {file:file};});
-          context.renderEach('luwak-row.html.template', fileRows).replace('#files tbody').then(
-            function() { searchable('#luwak tbody'); }
+          context.renderEach('luwak-row.html.template', fileRows)
+            .replace('#files tbody')
+            .then(function() { searchable('#luwak tbody'); }
           );
         } else{
           $('#files .pending td').html('<p>You have not added any files to luwak.</p>');
@@ -338,9 +348,7 @@ rekonApp = Sammy(function() {
     });
   });
 
-  /** Test a map reduce **/
-  // curl -X PUT -H"Content-Type: $content_type" $riak_url/$f --data-binary @$base_dir/$f
-  // curl -X PUT -H"Content-Type: application/javascript" http://127.0.0.1:8991/riak/rekon/map-erl_to_json.js --data-binary @./app/map-erl_to_json.js
+  /** Run a map on a single key **/
   this.post('#/mapred/:bucket/:key', function(context) {
     var name   = this.params['bucket'];
     var key    = this.params['key'];
@@ -357,6 +365,55 @@ rekonApp = Sammy(function() {
     var phase  = jQuery.get(phase_url, function(data) {
       phase_data = jQuery.parseJSON(data);
       var mapper = new RiakMapper(Rekon.client, name, key);
+      mapper.map(phase_data);
+      mapper.run(null, function(status, list, xmlrequest) {
+        if (! status) {
+          // TODO: Add error message.
+          return;
+        }
+
+        object = list[0];
+        context.render('key-content-type.html.template', {object: object}, function(){
+          context.render('key-meta.html.template', {object: object}).appendTo('#key tbody');
+        }).appendTo('#key tbody');
+
+        switch(object.contentType) {
+        case 'image/png':
+        case 'image/jpeg':
+        case 'image/jpg':
+        case 'image/gif':
+          context.render('value-image.html.template', {bucket: name, key: key}).appendTo('#value');
+          return;
+        case 'application/json':
+          value = JSON.stringify(object, null, 4);
+          break;
+        default:
+          value = object;
+          break;
+        }
+        context.render('value-pre.html.template', {value: value}).appendTo('#value');
+      });
+    });
+  });
+
+  /** Run a map/reduce on a bucket **/
+  this.post('#/mapred/:bucket', function(context) {
+    var name   = this.params['bucket'];
+
+    header('Key', Rekon.riakUrl(name));
+    breadcrumb($('<a>').attr('href', '#/buckets/' + name).text('Keys'));
+    breadcrumb($('<a>').attr('href', '#/buckets/' + name + '/' + key + '/edit')
+      .text('Edit').addClass('action'));
+    breadcrumb($('<a>').attr('href', Rekon.riakUrl(name + '/' + key))
+      .attr('target', '_blank')
+      .text('Riak').addClass('action'));
+
+    context.render('bucket.html.template').appendTo('#main');
+
+    phase_url = Rekon.riakUrl('rekon.jobs/'+this.params['phase']);
+    var phase  = jQuery.get(phase_url, function(data) {
+      phase_data = jQuery.parseJSON(data);
+      var mapper = new RiakMapper(Rekon.client, name);
       mapper.map(phase_data);
       mapper.run(null, function(status, list, xmlrequest) {
         if (! status) {
@@ -507,5 +564,4 @@ var find_mrs = function(key) {
 */
 jQuery(function($) {
   rekonApp.run('#/buckets');
-
 });

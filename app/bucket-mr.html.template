@@ -1,6 +1,6 @@
 <div id="mr_jobs">
 <form action="#/mapred/<%= bucket %>" method="post">
-  <select multiple="multiple" title="Select map/reduce phases">
+  <select name="phase" multiple="multiple" title="Select map/reduce phases">
   </select>
   <button type="submit">Run</button>
 </form>

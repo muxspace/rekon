@@ -64,12 +64,14 @@ rekonApp = Sammy(function() {
       .attr('target', '_blank').text('Riak').addClass('action'));
 
     context.render('bucket-mr.html.template', {bucket:name})
-      .appendTo('#main');
+      .appendTo('#main')
+      .wait();
     renderPhase('#mr_jobs select[multiple]', find_mrs, function() {
       $("#mr_jobs select[multiple]")
         .asmSelect({sortable: true, animate: true, addItemTarget: 'top'});
     });
-    context.render('bucket.html.template', {bucket: name}).appendTo('#main');
+    context.render('bucket.html.template', {bucket: name})
+      .appendTo('#main');
 
     bucket.keys(function(keys) {
       if (keys.length > 0) {
@@ -402,31 +404,37 @@ rekonApp = Sammy(function() {
 
     header('Key', Rekon.riakUrl(name));
     breadcrumb($('<a>').attr('href', '#/buckets/' + name).text('Keys'));
-    //breadcrumb($('<a>').attr('href', '#/buckets/' + name + '/' + key + '/edit')
-    //  .text('Edit').addClass('action'));
-    //breadcrumb($('<a>').attr('href', Rekon.riakUrl(name + '/' + key))
-    //  .attr('target', '_blank')
-    //  .text('Riak').addClass('action'));
+    breadcrumb($('<a>').attr('href', Rekon.riakUrl(name))
+      .attr('target', '_blank')
+      .text('Riak').addClass('action'));
 
-    context.render('bucket.html.template').appendTo('#main');
+    context.render('bucket.html.template', {bucket:name})
+      .appendTo('#main')
+      .wait();
 
     // TODO Assemble all phases together into a single job request
     phase_url = Rekon.riakUrl('rekon.jobs/'+this.params['phase']);
-    var phase  = jQuery.get(phase_url, function(data) {
+    jQuery.get(phase_url, function(data) {
       phase_data = jQuery.parseJSON(data);
       var mapper = new RiakMapper(Rekon.client, name);
       mapper.map(phase_data);
       mapper.run(null, function(status, list, xmlrequest) {
         if (! status) {
-          // TODO: Add error message.
+          context.render('bucket-err.html.template')
+            .replace('#keys tbody')
+            .wait();
           return;
         }
 
-        object = list[0];
-        context.render('key-content-type.html.template', {object: object}, function(){
-          context.render('key-meta.html.template', {object: object}).appendTo('#key tbody');
-        }).appendTo('#key tbody');
-
+        keyRows = list.map(
+          function(val) { return {bucket:name, key:val}; }
+        );
+        context.renderEach('key-row.html.template', keyRows)
+          .replace('#keys tbody')
+          .then(function(){ searchable('#bucket table tbody tr'); })
+          .then(function(){ renderPhase('#keys select#phase'); });
+          
+        /*
         switch(object.contentType) {
         case 'image/png':
         case 'image/jpeg':
@@ -442,6 +450,7 @@ rekonApp = Sammy(function() {
           break;
         }
         context.render('value-pre.html.template', {value: value}).appendTo('#value');
+        */
       });
     });
   });

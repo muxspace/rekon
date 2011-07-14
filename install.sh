@@ -11,7 +11,7 @@ do_exit()
 
 do_usage()
 {
-  do_exit "Usage: $0 [aejd] [host:port]" $1
+  do_exit "Usage: $0 [-aejdv] [-E erlang_dir] [host:port]" $1
 }
 
 content_type()
@@ -91,8 +91,8 @@ do
     j) jobs=yes;;
     d) data=yes;;
     v) verbose=yes;;
-    '?') usage 0;;
-    *) usage 1;;
+    '?') do_usage 0;;
+    *) do_usage 1;;
   esac
 done
 shift $(($OPTIND - 1))

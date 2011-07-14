@@ -1,3 +1,51 @@
+// Create a closure that acts as a continuation for a sequence of jQuery get
+// calls
+function phaseContinuation(count, options, finalizer) {
+  // Holds a list of the phase specs
+  phases = [ ];
+  return function(job_name, phase_data) {
+    console.log("Adding phase "+job_name);
+    count--;
+    json_ready = phase_data
+      .replace(/[\n\t\r]/g,' ')
+    phases[phases.length] = {name:job_name, spec:jQuery.parseJSON(json_ready)};
+    if (count == 0) { finalizer(phases, options); }
+  }
+}
+
+// This is the finalizer function of the continuation
+function runPhases(phases, options) {
+  bucket = options['bucket']
+  context = options['context']
+  var mapper = new RiakMapper(Rekon.client, bucket);
+  // p is an object {name:'job_name.map', spec:<json>}
+  phases.map(function(p) { addJob(mapper,p) });
+  mapper.run(null, function(status, list, xmlrequest) {
+    if (! status) {
+      context.render('bucket-err.html.template')
+        .replace('#keys tbody')
+        .wait();
+      return;
+    }
+
+    keyRows = list.map(function(obj) {
+      s = "";
+      // TODO Make formatting a custom function
+      for (k in obj) { s += k + " : " + obj[k] + "\n"; }
+      return {value:s}
+    });
+    context.renderEach('key-mr.html.template', keyRows)
+      .replace('#keys tbody')
+      .then(function(){ searchable('#bucket table tbody tr'); })
+  });
+}
+
+function addJob(mapper, p) {
+  if (/\.map$/i.test(p.name)) { mapper.map(p.spec); }
+  else if (/\.red$/i.test(p.name)) { mapper.reduce(p.spec); }
+  else { console.log("Skipping unknown file extension for "+p.name); }
+}
+
 rekonApp = Sammy(function() {
 
   $container = $(this.$element);
@@ -68,10 +116,11 @@ rekonApp = Sammy(function() {
       .wait();
     renderPhase('#mr_jobs select[multiple]', find_mrs, function() {
       $("#mr_jobs select[multiple]")
-        .asmSelect({sortable: true, animate: true, addItemTarget: 'top'});
+        .asmSelect({sortable: true, animate: true});
     });
-    context.render('bucket.html.template', {bucket: name})
-      .appendTo('#main');
+    context.render('bucket.html.template', {bucket:name})
+      .appendTo('#main')
+      .wait();
 
     bucket.keys(function(keys) {
       if (keys.length > 0) {
@@ -408,50 +457,23 @@ rekonApp = Sammy(function() {
       .attr('target', '_blank')
       .text('Riak').addClass('action'));
 
+    context.render('bucket-mr.html.template', {bucket:name})
+      .appendTo('#main')
+      .wait();
+    renderPhase('#mr_jobs select[multiple]', find_mrs, function() {
+      $("#mr_jobs select[multiple]")
+        .asmSelect({sortable: true, animate: true});
+    });
     context.render('bucket.html.template', {bucket:name})
       .appendTo('#main')
       .wait();
 
-    // TODO Assemble all phases together into a single job request
-    phase_url = Rekon.riakUrl('rekon.jobs/'+this.params['phase']);
-    jQuery.get(phase_url, function(data) {
-      phase_data = jQuery.parseJSON(data);
-      var mapper = new RiakMapper(Rekon.client, name);
-      mapper.map(phase_data);
-      mapper.run(null, function(status, list, xmlrequest) {
-        if (! status) {
-          context.render('bucket-err.html.template')
-            .replace('#keys tbody')
-            .wait();
-          return;
-        }
-
-        keyRows = list.map(
-          function(val) { return {bucket:name, key:val}; }
-        );
-        context.renderEach('key-row.html.template', keyRows)
-          .replace('#keys tbody')
-          .then(function(){ searchable('#bucket table tbody tr'); })
-          .then(function(){ renderPhase('#keys select#phase'); });
-          
-        /*
-        switch(object.contentType) {
-        case 'image/png':
-        case 'image/jpeg':
-        case 'image/jpg':
-        case 'image/gif':
-          context.render('value-image.html.template', {bucket: name, key: key}).appendTo('#value');
-          return;
-        case 'application/json':
-          value = JSON.stringify(object, null, 4);
-          break;
-        default:
-          value = object;
-          break;
-        }
-        context.render('value-pre.html.template', {value: value}).appendTo('#value');
-        */
-      });
+    raw_phases = jQuery.parseJSON(this.params['phases']);
+    options = {bucket:name,context:context};
+    continuation = phaseContinuation(raw_phases.length, options, runPhases);
+    raw_phases.map(function(p) {
+      phase_url = Rekon.riakUrl('rekon.jobs/'+p);
+      jQuery.get(phase_url, function(data) { continuation(p, data) });
     });
   });
 
@@ -526,6 +548,16 @@ Rekon = {
   }
 
 };
+
+// Set the form field to contain all selected elements
+$('#mr_jobs button').live('click', function(e){
+  var link = this;
+  //e.preventDefault();
+  var jobs = [ ];
+  $('#mr_jobs :selected')
+    .each(function(i, selected) { if (i>0) {jobs[i-1] = $(selected).val();} });
+  $('#mr_phases').val(JSON.stringify(jobs));
+});
 
 $('#keys a.move').live('click', function(e){
   var link = this;

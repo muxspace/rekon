@@ -1,0 +1,6 @@
+{"language":"javascript", "source":"
+function(v,k,a) {
+  print(v);
+  return [ x ]; 
+}
+"}

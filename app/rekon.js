@@ -31,8 +31,14 @@ function runPhases(phases, options) {
     keyRows = list.map(function(obj) {
       s = "";
       // TODO Make formatting a custom function
-      for (k in obj) { s += k + " : " + obj[k] + "\n"; }
-      return {value:s}
+      switch (typeof obj)
+      {
+        case "object":
+          for (k in obj) { s += k + " : " + obj[k] + "\n"; };
+          break;
+        default: s = obj; break;
+      }
+      return {value:s};
     });
     context.renderEach('key-mr.html.template', keyRows)
       .replace('#keys tbody')

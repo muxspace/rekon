@@ -1,6 +1,9 @@
 %% This module formats erlang terms to a human-readable string
 -module(erl_viewer).
--export([to_string/3, to_string/1]).
+-export([to_string/2, to_string/3, to_string/1]).
+
+%% As a reduce job
+to_string(List, _) -> to_string(List).
 
 %% Client:mapred([{<<"test_2">>,<<"1">>}], 
 %%   [{map, {modfun, erl_viewer,to_string}, none, true}]).

@@ -1,14 +1,18 @@
 // Create a closure that acts as a continuation for a sequence of jQuery get
 // calls
-function phaseContinuation(count, options, finalizer) {
-  // Holds a list of the phase specs
-  phases = [ ];
+function phaseContinuation(phase_list, options, finalizer) {
+  var phase_order = {};
+  for (i=0; i<phase_list.length; i++) { phase_order[phase_list[i]] = i; }
+
+  var count = phase_list.length;
+  var phases = [ ];
   return function(job_name, phase_data) {
     console.log("Adding phase "+job_name);
     count--;
     json_ready = phase_data
       .replace(/[\n\t\r]/g,' ')
-    phases[phases.length] = {name:job_name, spec:jQuery.parseJSON(json_ready)};
+    phase_spec = jQuery.parseJSON(json_ready);
+    phases[phase_order[job_name]] = {name:job_name, spec:phase_spec};
     if (count == 0) { finalizer(phases, options); }
   }
 }
@@ -476,7 +480,7 @@ rekonApp = Sammy(function() {
 
     raw_phases = jQuery.parseJSON(this.params['phases']);
     options = {bucket:name,context:context};
-    continuation = phaseContinuation(raw_phases.length, options, runPhases);
+    continuation = phaseContinuation(raw_phases, options, runPhases);
     raw_phases.map(function(p) {
       phase_url = Rekon.riakUrl('rekon.jobs/'+p);
       jQuery.get(phase_url, function(data) { continuation(p, data) });

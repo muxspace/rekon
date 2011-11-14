@@ -3,6 +3,12 @@
 # Date: 2001.07.14
 # Rewritten from the original version by Adam Hunter
 
+# To install all files, use this command
+# ./install.sh -av 127.0.0.1:8991
+# To start up reloader, use this command
+# ./install.sh -n dev1@127.0.0.1 dev2@127.0.0.1 dev3@127.0.0.1
+
+
 do_exit()
 {
   echo $1
@@ -75,14 +81,22 @@ do_install_data()
 do_install_erlang()
 {
   echo "Installing erlang modules to $module_dir"
+  mkdir -p .ebin
+  erlc -o .ebin/ erlang/*.erl
   sudo mkdir -p $module_dir
-  sudo erlc -o $module_dir erlang/*.erl
+  sudo cp .ebin/*.beam $module_dir
 
+}
+
+do_start_reloader()
+{
+  ./start_reloader.escript $@
 }
 
 node="127.0.0.1:8098"
 module_dir=/etc/riak/erlang
-while getopts "aeE:jdv?" option
+rekon=yes
+while getopts "aeE:jdnv?" option
 do
   case $option in
     a) erlang=yes; jobs=yes; data=yes;;
@@ -90,6 +104,7 @@ do
     E) erlang=yes; module_dir=$OPTARG;;
     j) jobs=yes;;
     d) data=yes;;
+    n) reloader=yes; rekon=;;
     v) verbose=yes;;
     '?') do_usage 0;;
     *) do_usage 1;;
@@ -99,10 +114,11 @@ shift $(($OPTIND - 1))
 
 [ -n "$1" ] && node=$1
 
-do_install_rekon
+[ -n "$rekon" ] && do_install_rekon
 [ -n "$jobs" ] && do_install_jobs
 [ -n "$data" ] && do_install_data
 [ -n "$erlang" ] && do_install_erlang
+[ -n "$reloader" ] && do_start_reloader "$@"
 
 
 echo "Installed, now visit: $riak_url/go"

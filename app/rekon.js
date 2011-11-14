@@ -409,6 +409,10 @@ rekonApp = Sammy(function() {
     });
   });
 
+  /*************************** MAP REDUCE JOBS ******************************/
+  this.get('#/mapred', function(context) {
+  });
+
   /** Run a map on a single key **/
   this.post('#/mapred/:bucket/:key', function(context) {
     var name   = this.params['bucket'];
